@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a2e">
+<title>فلاب رمضان</title>
+<meta property="og:title" content="فلاب رمضان 🌙">
+<meta property="og:description" content="اضغط للتحليق بين المآذن. هل تستطيع تحطيم رقمي القياسي؟">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: #050818;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    font-family: 'Cairo', sans-serif;
+  }
+
+  canvas { display: block; position: fixed; top: 0; left: 0; }
+
+  #overlay {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(5, 8, 30, 0.85);
+    z-index: 10; cursor: pointer;
+  }
+
+  .overlay-border {
+    border: 2px solid rgba(212,175,55,0.5);
+    border-radius: 16px;
+    padding: clamp(24px,6vw,48px) clamp(28px,8vw,64px);
+    display: flex; flex-direction: column; align-items: center;
+    background: rgba(10,15,50,0.92);
+    box-shadow: 0 0 30px rgba(212,175,55,0.2), inset 0 0 40px rgba(212,175,55,0.05);
+    max-width: 90vw;
+    position: relative;
+  }
+
+  .overlay-border::before, .overlay-border::after {
+    content: '✦';
+    position: absolute;
+    color: #d4af37;
+    font-size: 1.2rem;
+    opacity: 0.7;
+  }
+  .overlay-border::before { top: 8px; right: 12px; }
+  .overlay-border::after  { bottom: 8px; left: 12px; }
+
+  .crescent-icon {
+    font-size: clamp(2.5rem,10vw,4rem);
+    margin-bottom: 4px;
+    filter: drop-shadow(0 0 12px #d4af37);
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50%      { transform: translateY(-8px); }
+  }
+
+  #overlay h1 {
+    font-family: 'Amiri', serif;
+    font-weight: 700;
+    font-size: clamp(2rem,10vw,3.4rem);
+    color: #d4af37;
+    text-shadow: 0 0 15px rgba(212,175,55,0.8), 0 0 40px rgba(212,175,55,0.4);
+    margin-bottom: 4px;
+    text-align: center;
+  }
+
+  .tagline {
+    font-size: clamp(0.8rem,3vw,1rem);
+    color: #a89060;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .tap-btn {
+    font-family: 'Cairo', sans-serif;
+    font-weight: 900;
+    font-size: clamp(1rem,4vw,1.3rem);
+    color: #050818;
+    background: linear-gradient(135deg, #d4af37, #f5d76e, #b8962e);
+    border: none;
+    padding: 14px 40px;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(212,175,55,0.5);
+    cursor: pointer;
+    animation: pulse 1.8s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+  }
+
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 20px rgba(212,175,55,0.5); transform: scale(1); }
+    50%      { box-shadow: 0 0 35px rgba(212,175,55,0.9); transform: scale(1.04); }
+  }
+
+  .score-wrap { text-align: center; margin-bottom: 14px; }
+
+  .score-big {
+    font-family: 'Cairo', sans-serif;
+    font-size: clamp(3.5rem,16vw,5.5rem);
+    font-weight: 900;
+    color: #d4af37;
+    text-shadow: 0 0 20px rgba(212,175,55,0.9);
+    line-height: 1;
+  }
+
+  .score-label { font-size: clamp(0.8rem,3vw,1rem); color: #a89060; margin-top: 4px; }
+  .best-wrap   { font-size: clamp(0.9rem,3vw,1.1rem); color: #a89060; margin-bottom: 20px; }
+
+  .result-title {
+    font-family: 'Amiri', serif;
+    font-weight: 700;
+    font-size: clamp(1.6rem,7vw,2.4rem);
+    margin-bottom: 14px;
+    text-align: center;
+  }
+
+  .divider {
+    width: 80%; height: 1px;
+    background: linear-gradient(90deg, transparent, #d4af37, transparent);
+    margin: 12px 0; opacity: 0.5;
+  }
+
+  #liveScore {
+    position: fixed;
+    top: max(20px, env(safe-area-inset-top, 20px));
+    width: 100%; text-align: center;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 900;
+    font-size: clamp(2.5rem,12vw,5rem);
+    color: #d4af37;
+    text-shadow: 0 0 15px rgba(212,175,55,0.9);
+    pointer-events: none;
+    z-index: 5; opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  #liveScore.visible { opacity: 1; }
+  #startScreen { display: flex; flex-direction: column; align-items: center; }
+  #deadScreen  { flex-direction: column; align-items: center; }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="liveScore">٠</div>
+
+<div id="overlay">
+  <div class="overlay-border">
+    <div id="startScreen">
+      <div class="crescent-icon">🌙</div>
+      <h1>فلاب رمضان</h1>
+      <div class="tagline">حتى أين تستطيع الوصول؟</div>
+      <div class="divider"></div>
+      <button class="tap-btn">اضغط للتحليق</button>
+    </div>
+    <div id="deadScreen" style="display:none;">
+      <div class="result-title" id="resultTitle"></div>
+      <div class="divider"></div>
+      <div class="score-wrap">
+        <div class="score-big" id="deadScore">٠</div>
+        <div class="score-label">نقاطك</div>
+      </div>
+      <div class="best-wrap" id="deadBest">أفضل: ٠</div>
+      <button class="tap-btn">العب مجدداً</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const overlay     = document.getElementById('overlay');
+const liveScoreEl = document.getElementById('liveScore');
+
+let W, H;
+let GAP, PIPE_W, PIPE_SPEED, GRAVITY, JUMP, BIRD_X, BIRD_R, FLOOR_H;
+
+function updateConstants() {
+  const sc = Math.min(W, H) / 500;
+  GAP        = Math.round(165 * sc);
+  PIPE_W     = Math.round(58  * sc);
+  PIPE_SPEED = 2.4 + (W / 500) * 0.5;
+  GRAVITY    = 0.38 * sc;
+  JUMP       = -8.2 * sc;
+  BIRD_X     = Math.round(W * 0.18);
+  BIRD_R     = Math.round(19  * sc);
+  FLOOR_H    = Math.round(50  * sc);
+}
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  updateConstants();
+}
+window.addEventListener('resize', resize);
+resize();
+
+let state = 'idle';
+let bird  = { y: 0, vy: 0, wing: 0 };
+let pipes = [], score = 0, best = 0, pipeTimer = 0;
+let animFrame = null, loopRunning = false, frameCount = 0;
+
+// Stars
+let stars = [];
+function initStars() {
+  stars = Array.from({length: 120}, () => ({
+    x: Math.random() * W,
+    y: Math.random() * H * 0.78,
+    r: Math.random() * 1.6 + 0.2,
+    s: Math.random() * 0.4 + 0.1,
+    t: Math.random() * Math.PI * 2
+  }));
+}
+initStars();
+
+function toArabicNumerals(n) {
+  return String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+}
+
+// ── Game ──────────────────────────────────────────────────────────────────────
+function initGame() {
+  bird = { y: H / 2, vy: 0, wing: 0 };
+  pipes = []; score = 0; pipeTimer = 0;
+  liveScoreEl.textContent = '٠';
+  liveScoreEl.classList.add('visible');
+  state = 'playing';
+  overlay.style.display = 'none';
+  document.getElementById('startScreen').style.display = 'flex';
+  document.getElementById('deadScreen').style.display  = 'none';
+  if (!loopRunning) { loopRunning = true; loop(); }
+}
+
+function flap() {
+  if (state === 'idle' || state === 'dead') { initGame(); return; }
+  if (state === 'playing') bird.vy = JUMP;
+}
+
+let lastFlap = 0;
+function handleInput(e) {
+  e.preventDefault();
+  const now = Date.now();
+  if (now - lastFlap < 80) return;
+  lastFlap = now; flap();
+}
+
+document.addEventListener('touchstart', handleInput, { passive: false });
+document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); flap(); } });
+canvas.addEventListener('click', handleInput);
+overlay.addEventListener('click', handleInput);
+
+// ── Draw: Background ──────────────────────────────────────────────────────────
+function drawBg() {
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0,   '#020614');
+  sky.addColorStop(0.55,'#071228');
+  sky.addColorStop(1,   '#0f1f3d');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+  // Faint arabesque grid
+  ctx.save();
+  ctx.globalAlpha = 0.025;
+  ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 1;
+  const gs = Math.max(44, Math.round(W / 8));
+  for (let gx = 0; gx < W; gx += gs) {
+    for (let gy = 0; gy < H; gy += gs) {
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const rr = i % 2 === 0 ? gs * 0.38 : gs * 0.18;
+        i === 0 ? ctx.moveTo(gx + Math.cos(a)*rr, gy + Math.sin(a)*rr)
+                : ctx.lineTo(gx + Math.cos(a)*rr, gy + Math.sin(a)*rr);
+      }
+      ctx.closePath(); ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  // Stars
+  stars.forEach(s => {
+    s.t += 0.035;
+    if (state === 'playing') { s.x -= s.s; if (s.x < 0) { s.x = W; s.y = Math.random() * H * 0.78; } }
+    const a = 0.35 + Math.sin(s.t) * 0.3;
+    ctx.fillStyle = `rgba(255,245,200,${a})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // Crescent moon
+  drawMoon(W * 0.82, H * 0.1, Math.min(W, H) * 0.062);
+
+  // Hanging lanterns
+  drawLanterns();
+
+  // City silhouette
+  drawCity();
+}
+
+function drawMoon(mx, my, mr) {
+  ctx.save();
+
+  // Outer glow
+  const glow = ctx.createRadialGradient(mx, my, mr * 0.3, mx, my, mr * 3);
+  glow.addColorStop(0, 'rgba(255,240,150,0.18)');
+  glow.addColorStop(1, 'rgba(212,175,55,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(mx, my, mr * 3, 0, Math.PI * 2); ctx.fill();
+
+  // Clip to moon circle so crescent is clean
+  ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2);
+  ctx.clip();
+
+  // Full moon face — warm gradient
+  const face = ctx.createRadialGradient(mx - mr*0.2, my - mr*0.2, mr*0.1, mx, my, mr);
+  face.addColorStop(0,   '#fffde0');
+  face.addColorStop(0.5, '#f5e070');
+  face.addColorStop(1,   '#c8a820');
+  ctx.fillStyle = face;
+  ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
+
+  // Shadow circle offset — creates the crescent shape by darkening
+  const shadow = ctx.createRadialGradient(mx + mr*0.38, my, 0, mx + mr*0.38, my, mr * 1.0);
+  shadow.addColorStop(0,   'rgba(2,6,20,1)');
+  shadow.addColorStop(0.72,'rgba(2,6,20,0.96)');
+  shadow.addColorStop(1,   'rgba(2,6,20,0)');
+  ctx.fillStyle = shadow;
+  ctx.beginPath(); ctx.arc(mx + mr * 0.38, my, mr * 0.92, 0, Math.PI * 2); ctx.fill();
+
+  // Soft inner glow on the lit edge
+  const edge = ctx.createLinearGradient(mx - mr, my, mx, my);
+  edge.addColorStop(0,   'rgba(255,255,200,0.18)');
+  edge.addColorStop(0.4, 'rgba(255,255,200,0)');
+  ctx.fillStyle = edge;
+  ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
+
+  // Small star near the crescent (outside clip)
+  ctx.save();
+  ctx.shadowColor = '#ffe87a'; ctx.shadowBlur = mr * 0.8;
+  ctx.fillStyle = '#fff8c0';
+  drawStar5(mx + mr * 1.35, my - mr * 0.6, mr * 0.16, mr * 0.07);
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+function drawStar5(cx, cy, ro, ri) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+    const r = i % 2 === 0 ? ro : ri;
+    i === 0 ? ctx.moveTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r)
+            : ctx.lineTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r);
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+function drawLanterns() {
+  const count = Math.ceil(W / 130) + 1;
+  for (let i = 0; i < count; i++) {
+    const lx = i * 130;
+    const ly = Math.max(18, H * 0.055);
+    const lr = Math.min(W, H) * 0.026;
+    drawLantern(lx, ly, lr);
+  }
+}
+
+function drawLantern(lx, ly, lr) {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(212,175,55,0.35)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, ly); ctx.stroke();
+
+  const glow = ctx.createRadialGradient(lx, ly + lr, 0, lx, ly + lr, lr * 2.5);
+  glow.addColorStop(0, 'rgba(255,160,0,0.28)');
+  glow.addColorStop(1, 'rgba(255,160,0,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(lx, ly + lr, lr * 2.5, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = '#d4af37';
+  ctx.beginPath();
+  ctx.moveTo(lx - lr*0.5, ly);
+  ctx.lineTo(lx + lr*0.5, ly);
+  ctx.lineTo(lx + lr*0.35, ly + lr*0.5);
+  ctx.lineTo(lx - lr*0.35, ly + lr*0.5);
+  ctx.closePath(); ctx.fill();
+
+  const bg = ctx.createLinearGradient(lx - lr, 0, lx + lr, 0);
+  bg.addColorStop(0,   'rgba(160,40,0,0.9)');
+  bg.addColorStop(0.45,'rgba(240,100,0,0.95)');
+  bg.addColorStop(1,   'rgba(160,40,0,0.9)');
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.ellipse(lx, ly + lr*1.5, lr, lr*1.35, 0, 0, Math.PI*2); ctx.fill();
+
+  ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.ellipse(lx, ly + lr*1.2, lr*0.88, lr*0.2, 0, 0, Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(lx, ly + lr*1.8, lr*0.88, lr*0.2, 0, 0, Math.PI*2); ctx.stroke();
+
+  ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(lx, ly + lr*2.85); ctx.lineTo(lx, ly + lr*3.4); ctx.stroke();
+  ctx.fillStyle = '#d4af37';
+  ctx.beginPath(); ctx.arc(lx, ly + lr*3.5, lr*0.18, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function drawCity() {
+  const baseY = H - FLOOR_H;
+  ctx.fillStyle = 'rgba(4,9,26,0.92)';
+  ctx.beginPath(); ctx.moveTo(0, baseY);
+  const sw = Math.max(55, W / 7);
+  for (let i = 0; i <= Math.ceil(W / sw) + 1; i++) {
+    const bx = i * sw;
+    const bh = 25 + (i % 3) * 18;
+    ctx.lineTo(bx, baseY);
+    ctx.lineTo(bx, baseY - bh);
+    ctx.lineTo(bx + sw*0.12, baseY - bh);
+    ctx.lineTo(bx + sw*0.12, baseY - bh - 8);
+    ctx.lineTo(bx + sw*0.5,  baseY - bh - 20);
+    ctx.lineTo(bx + sw*0.88, baseY - bh - 8);
+    ctx.lineTo(bx + sw*0.88, baseY - bh);
+    ctx.lineTo(bx + sw, baseY - bh);
+  }
+  ctx.lineTo(W, baseY); ctx.closePath(); ctx.fill();
+}
+
+// ── Draw: Minaret Pipes ───────────────────────────────────────────────────────
+function archPath(cx, cy, cw, ch, pointsUp) {
+  ctx.beginPath();
+  const tx = cx + cw / 2;
+  if (pointsUp) {
+    ctx.moveTo(cx, cy + ch);
+    ctx.lineTo(cx + cw, cy + ch);
+    ctx.lineTo(cx + cw, cy + ch * 0.52);
+    ctx.quadraticCurveTo(cx + cw, cy, tx, cy);
+    ctx.quadraticCurveTo(cx, cy, cx, cy + ch * 0.52);
+    ctx.closePath();
+  } else {
+    const ty = cy + ch;
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + cw, cy);
+    ctx.lineTo(cx + cw, cy + ch * 0.48);
+    ctx.quadraticCurveTo(cx + cw, ty, tx, ty);
+    ctx.quadraticCurveTo(cx, ty, cx, cy + ch * 0.48);
+    ctx.closePath();
+  }
+}
+
+function drawMinaretPipe(x, topH) {
+  const botY = topH + GAP;
+  const gold = '#d4af37';
+  const cw   = PIPE_W + Math.round(PIPE_W * 0.14); // subtler overhang
+  const ch   = Math.round(PIPE_W * 0.38);           // shorter cap
+  const cx   = x - (cw - PIPE_W) / 2;
+
+  function bodyGrad() {
+    const g = ctx.createLinearGradient(x, 0, x + PIPE_W, 0);
+    g.addColorStop(0,    '#1a0d00');
+    g.addColorStop(0.28, '#5c3b10');
+    g.addColorStop(0.5,  '#c8a030');
+    g.addColorStop(0.72, '#5c3b10');
+    g.addColorStop(1,    '#1a0d00');
+    return g;
+  }
+  function capGrad() {
+    const g = ctx.createLinearGradient(cx, 0, cx + cw, 0);
+    g.addColorStop(0,    '#1a0d00');
+    g.addColorStop(0.28, '#7a5518');
+    g.addColorStop(0.5,  '#d4af37');
+    g.addColorStop(0.72, '#7a5518');
+    g.addColorStop(1,    '#1a0d00');
+    return g;
+  }
+
+  // TOP pipe body
+  const topBodyH = Math.max(0, topH - ch);
+  if (topBodyH > 0) {
+    ctx.fillStyle = bodyGrad();
+    ctx.fillRect(x, 0, PIPE_W, topBodyH);
+    // decorative bands
+    ctx.fillStyle = 'rgba(212,175,55,0.12)';
+    for (let yy = 14; yy < topBodyH; yy += Math.max(12, PIPE_W * 0.32)) {
+      ctx.fillRect(x, yy, PIPE_W, 2);
+    }
+  }
+  // TOP arch cap (points DOWN)
+  archPath(cx, topH - ch, cw, ch, false);
+  ctx.fillStyle = capGrad(); ctx.fill();
+
+  ctx.shadowColor = gold; ctx.shadowBlur = Math.round(PIPE_W * 0.45);
+  ctx.strokeStyle = gold; ctx.lineWidth = 1.5;
+  if (topBodyH > 0) ctx.strokeRect(x, 0, PIPE_W, topBodyH);
+  archPath(cx, topH - ch, cw, ch, false); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // BOTTOM pipe body
+  const botBodyY = botY + ch;
+  const botBodyH = Math.max(0, H - botBodyY - FLOOR_H);
+  if (botBodyH > 0) {
+    ctx.fillStyle = bodyGrad();
+    ctx.fillRect(x, botBodyY, PIPE_W, botBodyH);
+    ctx.fillStyle = 'rgba(212,175,55,0.12)';
+    for (let yy = botBodyY + 14; yy < botBodyY + botBodyH; yy += Math.max(12, PIPE_W * 0.32)) {
+      ctx.fillRect(x, yy, PIPE_W, 2);
+    }
+  }
+  // BOTTOM arch cap (points UP)
+  archPath(cx, botY, cw, ch, true);
+  ctx.fillStyle = capGrad(); ctx.fill();
+
+  ctx.shadowColor = gold; ctx.shadowBlur = Math.round(PIPE_W * 0.45);
+  ctx.strokeStyle = gold; ctx.lineWidth = 1.5;
+  if (botBodyH > 0) ctx.strokeRect(x, botBodyY, PIPE_W, botBodyH);
+  archPath(cx, botY, cw, ch, true); ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+// ── Draw: Hoopoe Bird (هدهد) ──────────────────────────────────────────────────
+function drawBird() {
+  const bx = BIRD_X, by = bird.y, r = BIRD_R;
+  ctx.save();
+  ctx.translate(bx, by);
+  ctx.rotate(Math.max(-0.45, Math.min(1.2, bird.vy * 0.07)));
+
+  bird.wing += state === 'playing' ? 0.2 : 0.05;
+  const wf = Math.sin(bird.wing) * 0.38;
+
+  ctx.shadowColor = '#d4af37'; ctx.shadowBlur = r * 1.3;
+
+  // Wing (behind body)
+  ctx.save();
+  ctx.rotate(wf);
+  ctx.fillStyle = '#7a3a10';
+  ctx.beginPath(); ctx.ellipse(-r*0.12, r*0.22, r*0.78, r*0.3, 0.22, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#d4af37';
+  ctx.beginPath(); ctx.ellipse(-r*0.12, r*0.22, r*0.58, r*0.14, 0.22, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.ellipse(-r*0.62, r*0.32, r*0.26, r*0.09, 0.38, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // Body
+  ctx.fillStyle = '#c87540';
+  ctx.beginPath(); ctx.ellipse(0, 0, r, r*0.72, 0, 0, Math.PI*2); ctx.fill();
+  // Belly highlight
+  ctx.fillStyle = '#e8a060';
+  ctx.beginPath(); ctx.ellipse(r*0.08, r*0.18, r*0.52, r*0.42, 0, 0, Math.PI*2); ctx.fill();
+
+  // Crest feathers
+  ctx.shadowBlur = r * 0.5; ctx.shadowColor = '#ffd700';
+  const crestColors = ['#c8a030','#d4af37','#b89020','#d4af37','#c8a030','#b89020'];
+  for (let i = 0; i < 6; i++) {
+    const fx = -r*0.28 + i * r*0.19;
+    const fh = r * (0.52 + Math.sin(i * 0.95) * 0.12);
+    ctx.fillStyle = crestColors[i];
+    ctx.beginPath(); ctx.ellipse(fx, -r*0.68 - fh*0.28, r*0.065, fh*0.52, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = i % 2 === 0 ? '#111' : '#f5d060';
+    ctx.beginPath(); ctx.arc(fx, -r*0.68 - fh*0.58, r*0.12, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+
+  // Eye
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(r*0.46, -r*0.22, r*0.26, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1a0800';
+  ctx.beginPath(); ctx.arc(r*0.5, -r*0.2, r*0.14, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(r*0.55, -r*0.26, r*0.06, 0, Math.PI*2); ctx.fill();
+
+  // Long curved hoopoe beak
+  ctx.strokeStyle = '#4a2800'; ctx.lineWidth = r*0.17; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(r*0.7, -r*0.1);
+  ctx.quadraticCurveTo(r*1.28, -r*0.04, r*1.48, r*0.24);
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// ── Draw: Floor ───────────────────────────────────────────────────────────────
+function drawFloor() {
+  const fg = ctx.createLinearGradient(0, H - FLOOR_H, 0, H);
+  fg.addColorStop(0, '#3d2808');
+  fg.addColorStop(1, '#1a1004');
+  ctx.fillStyle = fg;
+  ctx.fillRect(0, H - FLOOR_H, W, FLOOR_H);
+
+  ctx.shadowColor = '#d4af37'; ctx.shadowBlur = 10;
+  ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, H - FLOOR_H); ctx.lineTo(W, H - FLOOR_H); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Crenellation pattern
+  ctx.fillStyle = 'rgba(212,175,55,0.13)';
+  const tw = Math.max(10, W / 32);
+  for (let xx = 0; xx < W; xx += tw * 2) {
+    ctx.beginPath();
+    ctx.moveTo(xx, H - FLOOR_H);
+    ctx.lineTo(xx + tw, H - FLOOR_H);
+    ctx.lineTo(xx + tw*0.5, H - FLOOR_H + tw*0.55);
+    ctx.closePath(); ctx.fill();
+  }
+}
+
+// ── Collision ─────────────────────────────────────────────────────────────────
+function checkCollision() {
+  const bx = BIRD_X, by = bird.y, br = BIRD_R * 0.74;
+  if (by + br > H - FLOOR_H || by - br < 0) return true;
+  const cw = PIPE_W + Math.round(PIPE_W * 0.14);
+  const off = (cw - PIPE_W) / 2;
+  for (const p of pipes) {
+    if (bx + br > p.x - off && bx - br < p.x + PIPE_W + off) {
+      if (by - br < p.topH || by + br > p.topH + GAP) return true;
+    }
+  }
+  return false;
+}
+
+// ── Dead overlay ──────────────────────────────────────────────────────────────
+function showDeadOverlay() {
+  const isGreat = score >= 10, isLegend = score >= 20;
+  const color = isGreat ? '#d4af37' : '#e06060';
+  const msg   = isLegend ? '🌟 ما شاء الله!' : isGreat ? '🌙 أحسنت!' : '💫 انتهت اللعبة';
+  document.getElementById('resultTitle').textContent       = msg;
+  document.getElementById('resultTitle').style.color       = color;
+  document.getElementById('resultTitle').style.textShadow  = `0 0 15px ${color}`;
+  document.getElementById('deadScore').textContent         = toArabicNumerals(score);
+  document.getElementById('deadBest').textContent          = `أفضل: ${toArabicNumerals(best)}`;
+  document.getElementById('startScreen').style.display     = 'none';
+  document.getElementById('deadScreen').style.display      = 'flex';
+  overlay.style.display = 'flex';
+}
+
+// ── Main loop ─────────────────────────────────────────────────────────────────
+function loop() {
+  animFrame = requestAnimationFrame(loop);
+  frameCount++;
+  drawBg();
+
+  if (state === 'playing') {
+    bird.vy += GRAVITY;
+    bird.y  += bird.vy;
+
+    pipeTimer++;
+    const interval = Math.max(60, 108 - score * 1.5);
+    if (pipeTimer > interval) {
+      pipeTimer = 0;
+      const minTop = FLOOR_H * 2.8;
+      const maxTop = H - GAP - FLOOR_H * 2.8;
+      pipes.push({ x: W + PIPE_W, topH: minTop + Math.random() * Math.max(1, maxTop - minTop), scored: false });
+    }
+
+    for (const p of pipes) {
+      p.x -= PIPE_SPEED;
+      if (!p.scored && p.x + PIPE_W < BIRD_X) {
+        p.scored = true; score++;
+        if (score > best) best = score;
+        liveScoreEl.textContent = toArabicNumerals(score);
+      }
+    }
+    pipes = pipes.filter(p => p.x > -PIPE_W * 2);
+
+    if (checkCollision()) {
+      state = 'dead';
+      liveScoreEl.classList.remove('visible');
+      showDeadOverlay();
+    }
+  }
+
+  pipes.forEach(p => drawMinaretPipe(p.x, p.topH));
+  drawFloor();
+  if (state !== 'idle') drawBird();
+}
+
+loopRunning = true;
+loop();
+</script>
+</body>
+</html>
