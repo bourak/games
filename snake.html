@@ -7,180 +7,202 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Snake">
 <title>Snake</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@200;400&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --font-mono: 'DM Mono', 'Courier New', monospace;
-    --font-sans: 'DM Sans', system-ui, sans-serif;
-    --bg:     #dedad2;
-    --field:  #f5f4f0;
-    --text:   #1a1a18;
-    --muted:  #999890;
-    --accent: #d45c38;
-    --border: #a8a49a;
+    /* Nokia 3310 green LCD palette */
+    --nokia-bg:     #8bac0f;   /* light green — phone body */
+    --lcd-bg:       #9bbc0f;   /* classic LCD green background */
+    --lcd-dark:     #0f380f;   /* dark green — snake, pixels */
+    --lcd-mid:      #306230;   /* medium green — grid lines */
+    --lcd-light:    #8bac0f;   /* lighter — inactive elements */
+    --lcd-border:   #306230;
+    --phone-dark:   #1a1a2e;   /* phone body dark parts */
+    --phone-body:   #16213e;
+    --screen-bezel: #0f3460;
   }
 
   html, body {
     width: 100%; height: 100%;
     overflow: hidden;
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-sans);
+    background: var(--phone-body);
     touch-action: none;
+    font-family: 'Courier New', monospace;
   }
 
   body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* shift the whole layout up a bit */
     justify-content: flex-start;
-    padding-top: max(10px, 3vh);
+    padding-top: max(8px, 2vh);
   }
 
-  h1 {
-    font-family: var(--font-mono);
-    font-weight: 300;
-    font-size: 11px;
-    letter-spacing: 0.28em;
+  /* ── Phone title / brand ── */
+  .nokia-brand {
+    font-size: 10px;
+    letter-spacing: 0.4em;
     text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 8px;
+    color: #4a6fa5;
+    margin-bottom: 6px;
+    font-weight: bold;
   }
 
-  /* ── Canvas with visible border ── */
+  /* ── LCD screen with bezel ── */
+  .screen-bezel {
+    background: #1a2a4a;
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow:
+      0 0 0 2px #0a1628,
+      0 4px 20px rgba(0,0,0,0.6),
+      inset 0 1px 0 rgba(255,255,255,0.05);
+    position: relative;
+  }
+
+  /* LCD scanline effect overlay */
+  .screen-bezel::after {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    border-radius: 2px;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 10;
+  }
+
   .canvas-wrap {
     position: relative;
-    border-radius: 6px;
+    border-radius: 3px;
     overflow: hidden;
-    /* thick visible border so the play field is obvious */
-    border: 3px solid var(--border);
+    border: 2px solid var(--lcd-border);
     box-shadow:
-      0 0 0 1px rgba(0,0,0,0.06),
-      0 6px 24px rgba(0,0,0,0.13);
-    flex-shrink: 0;
-    transition: border-color 0.1s, box-shadow 0.1s;
+      inset 0 0 8px rgba(0,0,0,0.2),
+      0 0 0 1px #0a1628;
+    transition: border-color 0.1s;
   }
 
-  /* speed-up flash: border turns accent color */
   .canvas-wrap.speed-flash {
-    border-color: var(--accent) !important;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 6px 24px rgba(212,92,56,0.35) !important;
+    border-color: var(--lcd-dark) !important;
   }
 
-  canvas { display: block; }
+  canvas { display: block; image-rendering: pixelated; }
 
   /* ── Overlay ── */
   .overlay {
     position: absolute;
     inset: 0;
-    background: rgba(245,244,240,0.93);
+    background: rgba(155, 188, 15, 0.92);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    backdrop-filter: blur(3px);
-    transition: opacity 0.2s;
+    gap: 10px;
   }
-  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .overlay.hidden { display: none; }
 
   .overlay-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.3em;
+    font-size: 9px;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: var(--lcd-dark);
+    font-weight: bold;
   }
   .overlay-score {
-    font-family: var(--font-mono);
-    font-size: 52px;
-    font-weight: 500;
+    font-size: 36px;
+    font-weight: bold;
+    color: var(--lcd-dark);
     line-height: 1;
-    color: var(--text);
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.2);
   }
-  .overlay-hint { font-size: 12px; color: var(--muted); font-weight: 200; }
-
+  .overlay-hint {
+    font-size: 8px;
+    color: var(--lcd-mid);
+    letter-spacing: 0.1em;
+  }
   .start-btn {
-    padding: 10px 28px;
-    background: var(--text);
-    color: #f5f4f0;
+    padding: 6px 18px;
+    background: var(--lcd-dark);
+    color: var(--lcd-bg);
     border: none;
-    border-radius: 3px;
-    font-family: var(--font-mono);
-    font-size: 10px;
+    border-radius: 2px;
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
     letter-spacing: 0.2em;
     text-transform: uppercase;
     cursor: pointer;
-    transition: background 0.15s;
+    font-weight: bold;
   }
-  .start-btn:hover { background: #333; }
+  .start-btn:active { opacity: 0.8; }
 
-  /* ── Score panel — fixed bottom-left ── */
+  /* ── Score panel — bottom left, Nokia style ── */
   .score-panel {
     position: fixed;
     bottom: 22px;
-    left: 20px;
+    left: 16px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     z-index: 50;
   }
 
   .score-label {
-    font-family: var(--font-mono);
-    font-size: 8px;
-    letter-spacing: 0.22em;
+    font-size: 7px;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: #4a6fa5;
     display: block;
     margin-bottom: 1px;
+    font-weight: bold;
   }
   .score-value {
-    font-family: var(--font-mono);
-    font-size: 28px;
-    font-weight: 500;
+    font-size: 26px;
+    font-weight: bold;
     line-height: 1;
-    color: var(--text);
+    color: var(--lcd-bg);
+    text-shadow: 0 0 8px rgba(155,188,15,0.4);
   }
-  .score-value.best { color: var(--accent); }
+  .score-value.best { color: #8bac0f; }
 
   .speed-label {
-    font-family: var(--font-mono);
-    font-size: 8px;
-    letter-spacing: 0.22em;
+    font-size: 7px;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: #4a6fa5;
     display: block;
     margin-bottom: 5px;
+    font-weight: bold;
   }
-  .speed-pips { display: flex; gap: 5px; }
+  .speed-pips { display: flex; gap: 4px; }
   .pip {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    background: #c8c4bb;
-    transition: background 0.3s, transform 0.2s;
+    width: 9px; height: 9px;
+    border-radius: 1px;
+    background: #2a3a5a;
+    transition: background 0.2s;
   }
-  .pip.active { background: var(--accent); transform: scale(1.2); }
-  .pip.active.fast { background: #c0392b; }
+  .pip.active { background: var(--lcd-bg); box-shadow: 0 0 4px rgba(155,188,15,0.5); }
+  .pip.active.fast { background: #ff6b35; box-shadow: 0 0 4px rgba(255,107,53,0.5); }
 
   /* ── Offline toast ── */
   .toast {
     position: fixed;
     top: 12px; left: 50%;
     transform: translateX(-50%) translateY(-60px);
-    background: var(--text);
-    color: #f5f4f0;
-    font-family: var(--font-mono);
-    font-size: 10px;
+    background: var(--lcd-dark);
+    color: var(--lcd-bg);
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
     letter-spacing: 0.15em;
     text-transform: uppercase;
-    padding: 8px 16px;
-    border-radius: 20px;
+    padding: 6px 14px;
+    border-radius: 2px;
     z-index: 999;
     transition: transform 0.3s ease;
     white-space: nowrap;
@@ -191,15 +213,15 @@
   .joystick-zone {
     position: fixed;
     bottom: 16px; right: 16px;
-    width: 160px; height: 160px;
+    width: 150px; height: 150px;
     z-index: 100;
     touch-action: none;
   }
   .joystick-base {
     position: absolute; inset: 0;
     border-radius: 50%;
-    background: rgba(26,26,24,0.07);
-    border: 2px solid rgba(26,26,24,0.12);
+    background: rgba(155,188,15,0.08);
+    border: 2px solid rgba(155,188,15,0.2);
     transition: background 0.15s;
   }
   .joystick-base::before {
@@ -207,42 +229,44 @@
     position: absolute; inset: 0;
     border-radius: 50%;
     background:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='rgba(26,26,24,0.25)' d='M12 6l-6 8h12z'/%3E%3C/svg%3E") center 10px / 20px no-repeat,
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='rgba(26,26,24,0.25)' d='M12 18l6-8H6z'/%3E%3C/svg%3E") center calc(100% - 10px) / 20px no-repeat,
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='rgba(26,26,24,0.25)' d='M6 12l8-6v12z'/%3E%3C/svg%3E") 10px center / 20px no-repeat,
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='rgba(26,26,24,0.25)' d='M18 12l-8 6V6z'/%3E%3C/svg%3E") calc(100% - 10px) center / 20px no-repeat;
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='rgba(155,188,15,0.4)' d='M12 6l-6 8h12z'/%3E%3C/svg%3E") center 10px / 20px no-repeat,
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='rgba(155,188,15,0.4)' d='M12 18l6-8H6z'/%3E%3C/svg%3E") center calc(100% - 10px) / 20px no-repeat,
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='rgba(155,188,15,0.4)' d='M6 12l8-6v12z'/%3E%3C/svg%3E") 10px center / 20px no-repeat,
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='rgba(155,188,15,0.4)' d='M18 12l-8 6V6z'/%3E%3C/svg%3E") calc(100% - 10px) center / 20px no-repeat;
   }
   .joystick-thumb {
     position: absolute;
-    width: 56px; height: 56px;
+    width: 52px; height: 52px;
     border-radius: 50%;
-    background: var(--text);
-    box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+    background: #9bbc0f;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.4), 0 0 8px rgba(155,188,15,0.3);
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
     transition: background 0.1s;
     pointer-events: none;
   }
-  .joystick-thumb.active { background: #333; }
-  .joystick-base.dir-up    { background: radial-gradient(ellipse 60% 70% at 50% 15%, rgba(212,92,56,0.18) 0%, rgba(26,26,24,0.07) 100%); }
-  .joystick-base.dir-down  { background: radial-gradient(ellipse 60% 70% at 50% 85%, rgba(212,92,56,0.18) 0%, rgba(26,26,24,0.07) 100%); }
-  .joystick-base.dir-left  { background: radial-gradient(ellipse 70% 60% at 15% 50%, rgba(212,92,56,0.18) 0%, rgba(26,26,24,0.07) 100%); }
-  .joystick-base.dir-right { background: radial-gradient(ellipse 70% 60% at 85% 50%, rgba(212,92,56,0.18) 0%, rgba(26,26,24,0.07) 100%); }
+  .joystick-thumb.active { background: #8bac0f; }
+  .joystick-base.dir-up    { background: radial-gradient(ellipse 60% 70% at 50% 15%, rgba(155,188,15,0.22) 0%, rgba(155,188,15,0.05) 100%); }
+  .joystick-base.dir-down  { background: radial-gradient(ellipse 60% 70% at 50% 85%, rgba(155,188,15,0.22) 0%, rgba(155,188,15,0.05) 100%); }
+  .joystick-base.dir-left  { background: radial-gradient(ellipse 70% 60% at 15% 50%, rgba(155,188,15,0.22) 0%, rgba(155,188,15,0.05) 100%); }
+  .joystick-base.dir-right { background: radial-gradient(ellipse 70% 60% at 85% 50%, rgba(155,188,15,0.22) 0%, rgba(155,188,15,0.05) 100%); }
 </style>
 </head>
 <body>
 
 <div class="toast" id="toast"></div>
 
-<h1>Snake</h1>
+<div class="nokia-brand">Nokia</div>
 
-<div class="canvas-wrap" id="canvas-wrap">
-  <canvas id="c"></canvas>
-  <div class="overlay" id="overlay">
-    <span class="overlay-title" id="overlay-title">Ready</span>
-    <div class="overlay-score" id="overlay-score" style="display:none"></div>
-    <button class="start-btn" id="start-btn">Start</button>
-    <span class="overlay-hint">Joystick · Arrow keys · WASD</span>
+<div class="screen-bezel">
+  <div class="canvas-wrap" id="canvas-wrap">
+    <canvas id="c"></canvas>
+    <div class="overlay" id="overlay">
+      <span class="overlay-title" id="overlay-title">Snake</span>
+      <div class="overlay-score" id="overlay-score" style="display:none"></div>
+      <button class="start-btn" id="start-btn">► Play</button>
+      <span class="overlay-hint">Joystick · Arrow keys · WASD</span>
+    </div>
   </div>
 </div>
 
@@ -291,10 +315,10 @@ function showToast(msg, dur=2500) {
   toast.classList.add('show');
   toastTimer = setTimeout(()=>toast.classList.remove('show'), dur);
 }
-window.addEventListener('offline', ()=>showToast('⚡ Offline — game still works!', 3000));
-window.addEventListener('online',  ()=>showToast('✓ Back online', 2000));
+window.addEventListener('offline', ()=>showToast('offline - game still works!', 3000));
+window.addEventListener('online',  ()=>showToast('back online', 2000));
 
-/* ── CANVAS SETUP ── */
+/* ── CANVAS ── */
 const COLS = 24, ROWS = 24;
 const canvas      = document.getElementById('c');
 const ctx         = canvas.getContext('2d');
@@ -307,7 +331,13 @@ const bestEl      = document.getElementById('best');
 const startBtn    = document.getElementById('start-btn');
 const pips        = document.querySelectorAll('.pip');
 
-let CELL = 20;
+// Nokia LCD colors
+const LCD_BG    = '#9bbc0f';   // screen background
+const LCD_DARK  = '#0f380f';   // snake + food
+const LCD_MID   = '#306230';   // grid
+const LCD_LIGHT = '#8bac0f';   // subtle detail
+
+let CELL = 14;
 let snake, dir, nextDir, food, score, best=0, running=false, interval;
 
 /* ── SPEED LEVELS ── */
@@ -332,7 +362,6 @@ function updateSpeed() {
     currentLevel = lvl;
     clearInterval(interval);
     interval = setInterval(step, SPEED_LEVELS[lvl].ms);
-    // Flash border on speed-up
     canvasWrap.classList.add('speed-flash');
     setTimeout(()=>canvasWrap.classList.remove('speed-flash'), 350);
   }
@@ -342,15 +371,23 @@ function updateSpeed() {
   });
 }
 
-/* ── SIZING ──
-   Available height: viewport minus h1 (~28px) and top padding.
-   We also keep the canvas from overlapping the bottom score panel. */
+/* ── SIZING ── */
 function computeCell() {
-  const topChrome   = 50;   // h1 + padding-top
-  const bottomSpace = 20;   // breathing room so canvas doesn't cover score panel
-  const availH = window.innerHeight - topChrome - bottomSpace;
-  const availW = window.innerWidth  - 24;
-  CELL = Math.max(8, Math.floor(Math.min(availH, availW) / COLS));
+  const topChrome    = 60;   // nokia brand + padding
+  // Bottom: joystick is 160px tall + 16px from bottom = 176px
+  // Score panel is ~130px tall + 22px from bottom = ~152px
+  // We need to clear whichever is taller, but score is on the LEFT and
+  // joystick on the RIGHT — the canvas is centred, so we just need to
+  // not go below where the joystick starts (right side).
+  // Safe bottom clearance = 180px to leave room for both.
+  const bottomClear  = 188;
+  const availH = window.innerHeight - topChrome - bottomClear;
+  // Width: full width minus small margin
+  const availW = window.innerWidth - 20;
+  // Use height to drive size, but cap by width so it doesn't overflow horizontally
+  const cellByH = Math.floor(availH / ROWS);
+  const cellByW = Math.floor(availW / COLS);
+  CELL = Math.max(8, Math.min(cellByH, cellByW));
   canvas.width  = COLS * CELL;
   canvas.height = ROWS * CELL;
 }
@@ -358,9 +395,9 @@ function computeCell() {
 /* ── GAME ── */
 function init() {
   snake = [{x:12,y:12},{x:11,y:12},{x:10,y:12}];
-  dir      = {x:1,y:0};
-  nextDir  = {x:1,y:0};
-  score    = 0;
+  dir     = {x:1,y:0};
+  nextDir = {x:1,y:0};
+  score   = 0;
   currentLevel = 0;
   scoreEl.textContent = '0';
   placeFood();
@@ -377,17 +414,13 @@ function placeFood() {
 
 function step() {
   dir = nextDir;
-
-  // WRAP-AROUND: snake passes through walls and emerges from the other side
+  // Wrap-around — snake passes through walls
   const head = {
     x: (snake[0].x + dir.x + COLS) % COLS,
     y: (snake[0].y + dir.y + ROWS) % ROWS,
   };
-
-  // Only collision = hitting itself
-  if (snake.some(s=>s.x===head.x&&s.y===head.y)) {
-    gameOver(); return;
-  }
+  // Game over only on self-collision
+  if (snake.some(s=>s.x===head.x&&s.y===head.y)) { gameOver(); return; }
 
   snake.unshift(head);
   if (head.x===food.x && head.y===food.y) {
@@ -396,62 +429,63 @@ function step() {
     if (score>best){ best=score; bestEl.textContent=best; }
     placeFood();
     updateSpeed();
-  } else {
-    snake.pop();
-  }
+  } else { snake.pop(); }
   draw();
 }
 
-/* ── DRAW ── */
+/* ── DRAW — Nokia pixel style ── */
 function draw() {
-  // Play field background
-  ctx.fillStyle = '#f5f4f0';
+  // LCD background
+  ctx.fillStyle = LCD_BG;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Subtle grid lines
-  ctx.strokeStyle = '#eae8e2';
-  ctx.lineWidth = 0.5;
-  for (let x=0; x<=COLS; x++) {
-    ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,canvas.height); ctx.stroke();
-  }
-  for (let y=0; y<=ROWS; y++) {
-    ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(canvas.width,y*CELL); ctx.stroke();
+  // Pixel grid — very subtle dots like a real LCD
+  ctx.fillStyle = LCD_MID;
+  for (let x=0; x<COLS; x++) {
+    for (let y=0; y<ROWS; y++) {
+      // Just draw a 1px dot at the corner of each cell
+      ctx.fillRect(x*CELL, y*CELL, 1, 1);
+    }
   }
 
-  // Food
-  ctx.fillStyle = '#d45c38';
-  ctx.beginPath();
-  ctx.arc(food.x*CELL+CELL/2, food.y*CELL+CELL/2, CELL*0.28, 0, Math.PI*2);
-  ctx.fill();
+  // Food — solid dark square (Nokia style, no circles)
+  const fp = Math.max(2, Math.floor(CELL * 0.15));
+  ctx.fillStyle = LCD_DARK;
+  // Draw food as a small filled square with a cross/dot pattern
+  const fx = food.x*CELL + fp, fy = food.y*CELL + fp;
+  const fs = CELL - fp*2;
+  ctx.fillRect(fx, fy, fs, fs);
+  // Hollow middle to make it look like a dot/apple
+  ctx.fillStyle = LCD_BG;
+  const inner = Math.max(1, Math.floor(fs * 0.35));
+  ctx.fillRect(fx + inner, fy + inner, fs - inner*2, fs - inner*2);
+  ctx.fillStyle = LCD_DARK;
+  // center dot
+  const cd = Math.max(1, Math.floor(fs*0.15));
+  ctx.fillRect(fx + Math.floor(fs/2) - cd, fy + Math.floor(fs/2) - cd, cd*2, cd*2);
 
-  // Snake body
+  // Snake — solid dark pixel blocks, Nokia style (square, no rounding)
   snake.forEach((seg, i) => {
-    const pad = i===0 ? 1 : 2;
-    ctx.fillStyle  = i===0 ? '#1a1a18' : '#3a3a36';
-    ctx.globalAlpha = i===0 ? 1 : Math.max(0.35, 1-i*0.025);
-    ctx.beginPath();
-    rr(seg.x*CELL+pad, seg.y*CELL+pad, CELL-pad*2, CELL-pad*2, i===0?3:2);
-    ctx.fill();
+    const p = i===0 ? 0 : 1;
+    ctx.fillStyle = LCD_DARK;
+    ctx.fillRect(seg.x*CELL+p, seg.y*CELL+p, CELL-p*2, CELL-p*2);
+
+    // Head: draw 2 small "eyes" as LCD_BG pixels
+    if (i===0) {
+      const ew = Math.max(1, Math.floor(CELL*0.15));
+      ctx.fillStyle = LCD_BG;
+      let ex1, ey1, ex2, ey2;
+      const mid = Math.floor(CELL/2);
+      const off = Math.floor(CELL*0.25);
+      const eyeIn = Math.floor(CELL*0.65);
+      if      (dir.x===1)  { ex1=seg.x*CELL+eyeIn; ey1=seg.y*CELL+off;       ex2=seg.x*CELL+eyeIn; ey2=seg.y*CELL+CELL-off-ew; }
+      else if (dir.x===-1) { ex1=seg.x*CELL+off-ew;ey1=seg.y*CELL+off;       ex2=seg.x*CELL+off-ew;ey2=seg.y*CELL+CELL-off-ew; }
+      else if (dir.y===-1) { ex1=seg.x*CELL+off;   ey1=seg.y*CELL+off-ew;    ex2=seg.x*CELL+CELL-off-ew; ey2=seg.y*CELL+off-ew; }
+      else                  { ex1=seg.x*CELL+off;   ey1=seg.y*CELL+eyeIn;     ex2=seg.x*CELL+CELL-off-ew; ey2=seg.y*CELL+eyeIn; }
+      ctx.fillRect(ex1, ey1, ew, ew);
+      ctx.fillRect(ex2, ey2, ew, ew);
+    }
   });
-  ctx.globalAlpha = 1;
-
-  // Eyes on head
-  const hx = snake[0].x*CELL, hy = snake[0].y*CELL;
-  ctx.fillStyle = '#f5f4f0';
-  const er = Math.max(1.5, CELL*0.09);
-  let e1, e2;
-  if      (dir.x===1)  { e1={x:hx+CELL*0.72,y:hy+CELL*0.3}; e2={x:hx+CELL*0.72,y:hy+CELL*0.7}; }
-  else if (dir.x===-1) { e1={x:hx+CELL*0.28,y:hy+CELL*0.3}; e2={x:hx+CELL*0.28,y:hy+CELL*0.7}; }
-  else if (dir.y===-1) { e1={x:hx+CELL*0.3,y:hy+CELL*0.28}; e2={x:hx+CELL*0.7,y:hy+CELL*0.28}; }
-  else                  { e1={x:hx+CELL*0.3,y:hy+CELL*0.72}; e2={x:hx+CELL*0.7,y:hy+CELL*0.72}; }
-  [e1,e2].forEach(e=>{ ctx.beginPath(); ctx.arc(e.x,e.y,er,0,Math.PI*2); ctx.fill(); });
-}
-
-function rr(x,y,w,h,r) {
-  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
 }
 
 function applyDir(nd) {
@@ -473,7 +507,7 @@ function gameOver() {
   overlayTitle.textContent = 'Game Over';
   overlayScore.style.display = 'block';
   overlayScore.textContent = score;
-  startBtn.textContent = 'Play Again';
+  startBtn.textContent = '► Again';
   overlay.classList.remove('hidden');
 }
 
@@ -499,8 +533,7 @@ let joystickActive=false, jOriginX=0, jOriginY=0, jTouchId=null;
 function onJoyStart(cx,cy) {
   joystickActive=true; thumb.classList.add('active');
   const r=zone.getBoundingClientRect();
-  jOriginX=cx-r.left; jOriginY=cy-r.top;
-  moveThumb(0,0);
+  jOriginX=cx-r.left; jOriginY=cy-r.top; moveThumb(0,0);
 }
 function onJoyMove(cx,cy) {
   if (!joystickActive) return;
@@ -549,8 +582,7 @@ zone.addEventListener('mousedown', e=>onJoyStart(e.clientX,e.clientY));
 window.addEventListener('mousemove', e=>onJoyMove(e.clientX,e.clientY));
 window.addEventListener('mouseup', ()=>onJoyEnd());
 
-window.addEventListener('resize', ()=>{ computeCell(); if(running||!overlay.classList.contains('hidden')) draw(); });
-
+window.addEventListener('resize', ()=>{ computeCell(); draw(); });
 computeCell();
 init();
 </script>
